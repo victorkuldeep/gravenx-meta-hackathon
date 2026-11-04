@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Single source of truth for bindings: Workers Builds wipes any binding
+  // that is dashboard-only on the next Git deploy, so every binding the app
+  // needs (including SHARE_KV for ERD share links) must be declared here.
+  // Never add a wrangler.toml alongside this file - two configs break the build.
+  "name": "sf-payload-generator",
+  "main": "./worker-entry.js",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SHARE_KV",
+      "id": "9789b9796c224298901982030e2e42f5"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "WEBHOOK_INBOX", "class_name": "WebhookInbox" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WebhookInbox"] }],
+  // Workers Logs (invocation logs only, full logs off) - keeps the local
+  // config in sync with the dashboard Observability settings.
+  "observability": {
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "WORKER_SELF_REFERENCE",
+        "type": "service",
+        "service": "sf-payload-generator",
+        "environment": "production"
+      }
+    ]
+  }
+}

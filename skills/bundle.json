@@ -1,0 +1,6 @@
+{
+  "bundle": "gravenx-skills",
+  "version": "0.1.0",
+  "description": "GRAVENX skill bundle: 12 Agent Skills playbooks for terminal agents driving the studio (ERD, System Design, mapping, builder, governance, sequences, wireframes) via gravenx-mcp.",
+  "license": "MIT"
+}

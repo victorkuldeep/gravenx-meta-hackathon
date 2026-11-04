@@ -1,0 +1,58 @@
+{
+  "format": "gravenx-mapping-project",
+  "formatVersion": 1,
+  "exportedAt": "2026-10-08T00:00:00.000Z",
+  "exportKind": "full",
+  "project": {
+    "id": "map-sample-product-order",
+    "name": "Product Order → Salesforce (sample)",
+    "description": "Training mapping: a product order payload mapped onto Salesforce. Import it, open it, break it.",
+    "sourceSystem": "Order hub",
+    "sourceApi": "Product Order API v4",
+    "targetSystem": "Salesforce",
+    "domain": "Order management",
+    "tags": ["sample", "product-order"],
+    "status": "draft",
+    "createdAt": "2026-10-08T00:00:00.000Z",
+    "updatedAt": "2026-10-08T00:00:00.000Z",
+    "source": {
+      "kind": "json-sample",
+      "name": "product-order.json",
+      "originalText": "{\n  \"id\": \"PO-1001\",\n  \"state\": \"acknowledged\",\n  \"priority\": \"1\",\n  \"orderItem\": [\n    {\n      \"id\": \"1\",\n      \"action\": \"add\",\n      \"quantity\": 2,\n      \"product\": {\n        \"name\": \"Fiber 1G\",\n        \"status\": \"active\"\n      }\n    }\n  ],\n  \"relatedParty\": {\n    \"name\": \"Zayo\",\n    \"role\": \"customer\"\n  }\n}",
+      "paths": [
+        { "id": "$", "path": "$", "parent": null, "key": "$", "kind": "object", "jsonType": "object", "depth": 0, "inArray": false, "required": "unknown" },
+        { "id": "$.id", "path": "$.id", "parent": "$", "key": "id", "kind": "scalar", "jsonType": "string", "example": "PO-1001", "depth": 1, "inArray": false, "required": "unknown" },
+        { "id": "$.state", "path": "$.state", "parent": "$", "key": "state", "kind": "scalar", "jsonType": "string", "example": "acknowledged", "depth": 1, "inArray": false, "required": "unknown" },
+        { "id": "$.priority", "path": "$.priority", "parent": "$", "key": "priority", "kind": "scalar", "jsonType": "string", "example": "1", "depth": 1, "inArray": false, "required": "unknown" },
+        { "id": "$.orderItem", "path": "$.orderItem", "parent": "$", "key": "orderItem", "kind": "array", "jsonType": "array", "depth": 1, "inArray": false, "required": "unknown" },
+        { "id": "$.orderItem[]", "path": "$.orderItem[]", "parent": "$.orderItem", "key": "orderItem[]", "kind": "object", "jsonType": "object", "depth": 2, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].id", "path": "$.orderItem[].id", "parent": "$.orderItem[]", "key": "id", "kind": "scalar", "jsonType": "string", "example": "1", "depth": 3, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].action", "path": "$.orderItem[].action", "parent": "$.orderItem[]", "key": "action", "kind": "scalar", "jsonType": "string", "example": "add", "depth": 3, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].quantity", "path": "$.orderItem[].quantity", "parent": "$.orderItem[]", "key": "quantity", "kind": "scalar", "jsonType": "integer", "example": 2, "depth": 3, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].product", "path": "$.orderItem[].product", "parent": "$.orderItem[]", "key": "product", "kind": "object", "jsonType": "object", "depth": 3, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].product.name", "path": "$.orderItem[].product.name", "parent": "$.orderItem[].product", "key": "name", "kind": "scalar", "jsonType": "string", "example": "Fiber 1G", "depth": 4, "inArray": true, "required": "unknown" },
+        { "id": "$.orderItem[].product.status", "path": "$.orderItem[].product.status", "parent": "$.orderItem[].product", "key": "status", "kind": "scalar", "jsonType": "string", "example": "active", "depth": 4, "inArray": true, "required": "unknown" },
+        { "id": "$.relatedParty", "path": "$.relatedParty", "parent": "$", "key": "relatedParty", "kind": "object", "jsonType": "object", "depth": 1, "inArray": false, "required": "unknown" },
+        { "id": "$.relatedParty.name", "path": "$.relatedParty.name", "parent": "$.relatedParty", "key": "name", "kind": "scalar", "jsonType": "string", "example": "Zayo", "depth": 2, "inArray": false, "required": "unknown" },
+        { "id": "$.relatedParty.role", "path": "$.relatedParty.role", "parent": "$.relatedParty", "key": "role", "kind": "scalar", "jsonType": "string", "example": "customer", "depth": 2, "inArray": false, "required": "unknown" }
+      ],
+      "capturedAt": "2026-10-08T00:00:00.000Z"
+    },
+    "sfSnapshot": null,
+    "recordPlans": [
+      { "id": "plan-sample-1", "name": "Order header", "objectName": "Order__c", "intent": "create", "sourcePath": "", "cardinality": "one", "parentPlanId": null }
+    ],
+    "relationships": [],
+    "mappings": [
+      { "id": "row-sample-1", "sourcePath": "$.id", "planId": "plan-sample-1", "objectName": "Order__c", "fieldName": "Order_Number__c", "kind": "direct", "status": "mapped", "rationale": "Sample mapping.", "updatedAt": "2026-10-08T00:00:00.000Z" },
+      { "id": "row-sample-2", "sourcePath": "$.state", "planId": "plan-sample-1", "objectName": "Order__c", "fieldName": "Status__c", "kind": "enum", "status": "mapped", "enumMap": [{ "sourceValue": "acknowledged", "targetValue": "Acknowledged", "decided": true }], "rationale": "Sample enum mapping.", "updatedAt": "2026-10-08T00:00:00.000Z" },
+      { "id": "row-sample-3", "sourcePath": "$.orderItem[].quantity", "planId": "plan-sample-1", "objectName": "Order__c", "fieldName": "Line_Count__c", "kind": "direct", "status": "mapped", "rationale": "Sample mapping.", "updatedAt": "2026-10-08T00:00:00.000Z" },
+      { "id": "row-sample-4", "sourcePath": "$.relatedParty.name", "planId": null, "objectName": "Account", "fieldName": "Name", "kind": "direct", "status": "mapped", "rationale": "Sample cross-object mapping.", "updatedAt": "2026-10-08T00:00:00.000Z" }
+    ],
+    "decisions": [
+      { "id": "dec-sample-1", "title": "Decide priority scale mapping", "description": "Priority 1-4 vs the Salesforce urgency picklist is undecided.", "sourcePaths": ["$.priority"], "planId": null, "status": "open", "owner": "Architect", "createdAt": "2026-10-08T00:00:00.000Z", "updatedAt": "2026-10-08T00:00:00.000Z" }
+    ],
+    "versions": [],
+    "extensions": {}
+  }
+}

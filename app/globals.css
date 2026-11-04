@@ -1,0 +1,377 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  /* ── Canvas / Surface - off-white with light warmth ── */
+  --color-canvas: #FAF8F2;
+  --color-surface: #FFFFFF;
+  --color-surface-strong: #F0EAD6;
+  --color-surface-soft: #F6F1E4;
+
+  /* ── Typography ── */
+  --color-ink: #18140C;
+  --color-ink-soft: #4A4438;
+  --color-muted: #8A8070;
+
+  /* ── Borders ── */
+  --color-line: #DDD3BC;
+  --color-line-soft: #EAE2CF;
+
+  /* ── Accent - metallic bronze ── */
+  --color-accent: #9A7653;
+  --color-accent-soft: #C9B39A;
+  --color-accent-dark: #7A5C3A;
+  --color-accent-bg: #F6F0E2;
+
+  /* ── Semantic ── */
+  --color-success: #4A7C59;
+  --color-success-bg: #EDF5F0;
+  --color-warning: #A67C52;
+  --color-warning-bg: #FDF5E8;
+  --color-error: #8B4049;
+  --color-error-bg: #FDF0F1;
+
+  /* ── Typography - Inter + JetBrains Mono self-hosted via @fontsource
+     (bundled woff2, zero external requests; system stacks are fallback only) ── */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --font-inter: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+/* Hard guarantee: every control inherits the system stack (kills serif fallback) */
+button, input, select, textarea, optgroup, option {
+  font-family: inherit;
+}
+
+::selection {
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Skip link ── */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--color-ink);
+  color: var(--color-canvas);
+  font-weight: 500;
+  border-radius: 8px;
+}
+.skip-to-content:focus { left: 1rem; }
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent-soft); }
+
+/* ── Brand ── */
+.gravenx-brand {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.gravenx-brand__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.gravenx-brand__lead {
+  color: var(--color-ink);
+}
+.gravenx-brand__rest {
+  background: linear-gradient(100deg, #9A7653 0%, #C9A86A 55%, #7A5C3A 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.gravenx-brand__tagline {
+  margin-left: 1px;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+}
+
+/* ── Display type - SF Pro Display style: semibold, tight tracking, normal case ── */
+.font-display {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+/* ── Inter utility (version lines, compact UI accents) ── */
+.font-inter {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+.hero-title {
+  font-family: "Arial Narrow", "Bahnschrift Condensed", "Roboto Condensed", -apple-system, sans-serif;
+  font-size: clamp(48px, 6vw, 84px);
+  font-stretch: condensed;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 0.88;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.hero-title em { color: var(--color-accent); font-style: normal; }
+/* Home hero variant - archtools black + burgundy */
+.hero-title--red em { color: #722F37; }
+/* Welcome popup - whole line in deep burgundy */
+.hero-title--burgundy { color: #722F37; }
+.hero-title--burgundy em { color: #722F37; }
+/* Rotating tagline entrance (separate key so each line replays it) */
+@keyframes tagline-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tagline-rotate { animation: tagline-in 0.45s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .tagline-rotate { animation: none; }
+}
+/* Zig-zag capability titles - second half (payloads, reference IDs…) in chocolate */
+.zigzag-title em { color: #4E342E; }
+
+/* ── Hero dotted mesh (research-lab language): warm sand base, bronze dots,
+ * faint survey grid, contour curves top-right ── */
+.hero-mesh {
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at 100% 0%, rgba(73, 55, 27, 0.05) 18%, transparent 19%),
+    radial-gradient(circle at 100% 0%, rgba(73, 55, 27, 0.05) 34%, transparent 35%),
+    radial-gradient(circle at 100% 0%, rgba(73, 55, 27, 0.04) 52%, transparent 53%),
+    radial-gradient(rgba(73, 55, 27, 0.13) 1px, transparent 1.3px),
+    linear-gradient(to right, rgba(73, 55, 27, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(73, 55, 27, 0.05) 1px, transparent 1px);
+  background-size: auto, auto, auto, 24px 24px, 44px 44px, 44px 44px;
+}
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--color-line);
+  background: var(--color-canvas);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.hero-kicker__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-accent-dark);
+}
+
+/* ── Connectivity pulse ── */
+.status-dot { position: relative; width: 8px; height: 8px; border-radius: 9999px; }
+.status-dot.is-live::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1.5px solid currentColor;
+  opacity: 0.45;
+  animation: status-ping 1.8s ease-out infinite;
+}
+@keyframes status-ping {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1rem;
+  padding-top: 8vh;
+  background: rgba(24, 20, 12, 0.5);
+  backdrop-filter: blur(3px);
+  animation: overlay-in 0.18s ease-out;
+}
+/* Notes-family modals: 20px all around, full remaining space. */
+.modal-overlay.modal-notes {
+  align-items: center;
+  padding: 20px;
+}
+/* Arena brain-connect: 40px all around, card takes the full remainder. */
+.modal-overlay.modal-arena {
+  align-items: stretch;
+  padding: 40px;
+}
+.modal-card {
+  width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px -12px rgba(24, 20, 12, 0.35);
+  overflow: hidden;
+  animation: modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Cards ── */
+.arch-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(24, 20, 12, 0.05);
+}
+.arch-card__head {
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+/* ── Hairline divider with bronze tick ── */
+.bronze-rule {
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-soft) 45%, transparent 100%);
+  border-radius: 9999px;
+}
+
+/* ── Hero carousel slide entrance ── */
+.hero-slide {
+  animation: hero-fade 0.45s ease-out;
+}
+@keyframes hero-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-slide { animation: none; }
+}
+
+/* ── Section flash-highlight (proves a nav click landed, even when already in view) ── */
+.flash-target {
+  border-radius: 12px;
+  animation: flash-ring 1.8s ease-out;
+}
+
+/* ERD link highlight: burgundy halo breathes while two tables stay paired. */
+.erd-link-glow {
+  animation: erd-link-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes erd-link-shimmer {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(114, 47, 55, 0.38), 0 8px 28px -10px rgba(24, 20, 12, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(114, 47, 55, 0.14), 0 8px 28px -10px rgba(24, 20, 12, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .erd-link-glow { animation: none; }
+}
+@keyframes flash-ring {
+  0% { box-shadow: 0 0 0 0 rgba(154, 118, 83, 0); }
+  25% { box-shadow: 0 0 0 3px rgba(154, 118, 83, 0.9); }
+  70% { box-shadow: 0 0 0 3px rgba(154, 118, 83, 0.55); }
+  100% { box-shadow: 0 0 0 0 rgba(154, 118, 83, 0); }
+}
+
+/* Code blocks - dark warm-neutral */
+.code-block-bg { background-color: #1A1710; color: #ECE8DF; }
+
+/* Focus ring helper */
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bronze-600 focus-visible:ring-offset-2 focus-visible:ring-offset-ivory-100;
+}
+
+/* ── Schema presentation mode (body.sf-present): PPT-style full screen.
+   Same-tab toggle from the Schema Explorer - hides app chrome, no routing. ── */
+body.sf-present {
+  overflow: hidden;
+}
+body.sf-present .app-chrome-header,
+body.sf-present .app-chrome-footer {
+  display: none;
+}
+/* 5px breathing room around the canvas in presentation mode */
+body.sf-present #main-content > main {
+  padding: 5px;
+}
+
+/* Rich-text highlights: stored as <mark data-color> (no inline styles),
+   painted here so editor and read-only previews match exactly. */
+.tiptap mark, .rich-body mark {
+  border-radius: 2px;
+  padding: 0 1px;
+  background-color: #FFEB9C;
+}
+.tiptap mark[data-color="#FFEB9C"], .rich-body mark[data-color="#FFEB9C"] { background-color: #FFEB9C; }
+.tiptap mark[data-color="#C6F6C6"], .rich-body mark[data-color="#C6F6C6"] { background-color: #C6F6C6; }
+.tiptap mark[data-color="#F9C9D4"], .rich-body mark[data-color="#F9C9D4"] { background-color: #F9C9D4; }
+.tiptap mark[data-color="#C4E3FC"], .rich-body mark[data-color="#C4E3FC"] { background-color: #C4E3FC; }
+
+/* Diagram Studio preview: clean capture view - hide connector dots and
+   viewport controls so the exported PNG shows only boxes and links. */
+.studio-preview .react-flow__handle { display: none; }
+.studio-preview .react-flow__controls { display: none; }
+
+/* Diagram Studio: the selected link draws in bronze so the inspector
+   target is always visible on canvas. Scoped to studio only. */
+.studio-canvas .react-flow__edge.selected .react-flow__edge-path { stroke: #A98450; }
+
+/* Scrollable rails without a visible scrollbar (scroll still works). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Diagram Studio palette: relax the shared System glyphs (fixed 2px
+   strokes) to lean 1.5px strokes here only - System itself is untouched. */
+.studio-palette-lean svg { width: 17px; height: 17px; stroke-width: 1.5; }

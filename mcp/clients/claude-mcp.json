@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "gravenx": {
+      "command": "node",
+      "args": ["<DIST_DIR>/gravenx-mcp.cjs"],
+      "env": {
+        "GRAVENX_WORKSPACE": "<WORKSPACE_DIR>",
+        "GRAVENX_BASE_URL": "https://studio.yourdomain.com"
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gravenx": {
+      "command": "node",
+      "args": ["<DIST_DIR>/gravenx-mcp.cjs"],
+      "env": {
+        "GRAVENX_WORKSPACE": "<WORKSPACE_DIR>"
+      }
+    }
+  }
+}

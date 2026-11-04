@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "gravenx": {
+      "type": "local",
+      "command": ["node", "<DIST_DIR>/gravenx-mcp.cjs"],
+      "environment": {
+        "GRAVENX_WORKSPACE": "<WORKSPACE_DIR>",
+        "GRAVENX_BASE_URL": "https://studio.yourdomain.com"
+      },
+      "enabled": true
+    }
+  }
+}

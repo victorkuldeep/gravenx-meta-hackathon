@@ -1,0 +1,11 @@
+# Codex MCP wiring for gravenx-mcp. Merge into ~/.codex/config.toml.
+# Replace <DIST_DIR> with the folder holding gravenx-mcp.cjs
+# and <WORKSPACE_DIR> with the agent's file workspace.
+
+[mcp_servers.gravenx]
+command = "node"
+args = ["<DIST_DIR>/gravenx-mcp.cjs"]
+
+[mcp_servers.gravenx.env]
+GRAVENX_WORKSPACE = "<WORKSPACE_DIR>"
+GRAVENX_BASE_URL = "https://studio.yourdomain.com"
