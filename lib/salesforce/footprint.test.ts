@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchFieldUsage, fetchFootprint, fetchKeyPrefix, flowLane, footprintMarkdown, footprintSectionKeys, type FootprintRunner } from "./footprint";
+import { clearFootprintCache, fetchEntityId, fetchFieldUsage, fetchFootprint, fetchFootprintCached, flowLane, footprintMarkdown, footprintSectionKeys, type FootprintRunner } from "./footprint";
 
 function runnerFor(handlers: Record<string, object[]> | Error): FootprintRunner {
   return async (soql: string) => {
@@ -71,13 +71,13 @@ describe("automation footprint", () => {
     expect(fp.total).toBe(7);
   });
 
-  it("resolves the key prefix for EntityDefinitionId filters", async () => {
-    const prefix = await fetchKeyPrefix("Account", async (soql) => {
+  it("resolves the entity id for EntityDefinitionId filters", async () => {
+    const id = await fetchEntityId("Account", async (soql) => {
       expect(soql).toContain("FROM EntityDefinition");
-      return { ok: true, records: [{ KeyPrefix: "001" }] };
+      return { ok: true, records: [{ DurableId: "01Ixx" }] };
     });
-    expect(prefix).toBe("001");
-    const missing = await fetchKeyPrefix("Nope__c", async () => ({ ok: true, records: [] }));
+    expect(id).toBe("01Ixx");
+    const missing = await fetchEntityId("Nope__c", async () => ({ ok: true, records: [] }));
     expect(missing).toBe("");
   });
 
@@ -99,22 +99,72 @@ describe("automation footprint", () => {
   });
 
   it("resolves field usage through the dependency index", async () => {
+    const seen: string[] = [];
     const usage = await fetchFieldUsage("Account", "Industry", async (soql) => {
-      if (soql.includes("FROM FieldDefinition")) return { ok: true, records: [{ DurableId: "00Nxx" }] };
+      seen.push(soql);
+      if (soql.includes("FROM FieldDefinition")) return { ok: true, records: [{ Id: "00Nxx", DurableId: "01Ixx.00Nxx" }] };
       if (soql.includes("FROM MetadataComponentDependency")) {
-        return { ok: true, records: [{ MetadataComponentName: "Acct Flow", MetadataComponentType: "Flow" }] };
+        if (soql.includes("00Nxx") && !soql.includes("01Ixx")) {
+          return { ok: true, records: [{ MetadataComponentName: "Acct Flow", MetadataComponentType: "Flow" }] };
+        }
+        return { ok: true, records: [] };
       }
       return { ok: false, error: "no mock" };
     });
     expect(usage.status).toBe("ok");
     expect(usage.deps).toEqual([{ name: "Acct Flow", type: "Flow" }]);
+    expect(seen.some((q) => q.includes("RefMetadataComponentId = '00Nxx'"))).toBe(true);
     const missing = await fetchFieldUsage("Account", "Nope__c", async () => ({ ok: true, records: [] }));
     expect(missing.status).toBe("unavailable");
+    const down = await fetchFieldUsage("Account", "Industry", async (soql) => {
+      if (soql.includes("FROM FieldDefinition")) return { ok: true, records: [{ Id: "00Nxx" }] };
+      return { ok: false, error: "index down" };
+    });
+    expect(down.status).toBe("unavailable");
+    expect(down.note).toBe("index down");
+  });
+
+  it("holds footprints in cache until forced or cleared", async () => {
+    clearFootprintCache();
+    let calls = 0;
+    const run: FootprintRunner = async () => {
+      calls += 1;
+      return { ok: true, records: [] };
+    };
+    const first = await fetchFootprintCached("Invoice__c", "01Ixx", run);
+    expect(calls).toBeGreaterThan(0);
+    const second = await fetchFootprintCached("Invoice__c", "01Ixx", run);
+    expect(second).toBe(first);
+    const forced = await fetchFootprintCached("Invoice__c", "01Ixx", run, { force: true });
+    expect(forced).not.toBe(first);
+    expect(forced.at).toBeGreaterThanOrEqual(first.at);
+    clearFootprintCache("Invoice__c");
+    const afterClear = await fetchFootprintCached("Invoice__c", "01Ixx", run);
+    expect(afterClear).not.toBe(forced);
+    clearFootprintCache();
   });
 
   it("marks sections unavailable instead of fabricating zeros", async () => {
     const fp = await fetchFootprint("Account", "001", async () => ({ ok: false, error: "invalid field" }));
     expect(fp.sections.every((s) => s.status === "unavailable" && s.rows.length === 0)).toBe(true);
     expect(fp.total).toBe(0);
+  });
+
+  it("runs queues through the standard API, tooling for everything else", async () => {
+    const seen: { soql: string; tooling: boolean | undefined }[] = [];
+    const fp = await fetchFootprint("Invoice__c", "a00", async (soql, tooling) => {
+      seen.push({ soql, tooling });
+      if (soql.includes("FROM QueueSobject")) {
+        return { ok: true, records: [{ QueueId: "q1", Queue: { Name: "Esc Invoices", DeveloperName: "Esc_Invoices" } }] };
+      }
+      return { ok: true, records: [] };
+    });
+    const queueCalls = seen.filter((s) => s.soql.includes("FROM QueueSobject"));
+    expect(queueCalls.length).toBeGreaterThan(0);
+    expect(queueCalls.every((s) => s.tooling === false)).toBe(true);
+    expect(seen.filter((s) => !s.soql.includes("FROM QueueSobject")).every((s) => s.tooling !== false)).toBe(true);
+    const queues = fp.sections.find((s) => s.key === "queues");
+    expect(queues?.status).toBe("ok");
+    expect(queues?.rows[0]).toMatchObject({ name: "Esc Invoices" });
   });
 });

@@ -27,6 +27,7 @@ import { HidePanel } from "./erd/HidePanel";
 import { PicklistPopover, type PicklistPopoverData } from "./erd/PicklistPopover";
 import { RecordTypePopover, type RecordTypePopoverData } from "./erd/RecordTypePopover";
 import { AutomationModal } from "./erd/AutomationModal";
+import { clearFootprintCache } from "@/lib/salesforce/footprint";
 import { EntityLogModal } from "./erd/EntityLogModal";
 import {
   listSnapshotsByOrg,
@@ -3947,6 +3948,7 @@ export default function SchemaPanel({
     setNotice(null);
     setSpot(null);
     setPopover(null);
+    clearFootprintCache();
     setBusy(`Refreshing ${ids.length} object${ids.length === 1 ? "" : "s"}…`);
     try {
       const settled = await mapLimit(ids, 6, async (n) => {
@@ -7063,7 +7065,7 @@ export default function SchemaPanel({
           key={automationApi}
           apiName={automationApi}
           label={labels.get(automationApi) ?? automationApi}
-          keyPrefix=""
+          entityId=""
           instanceUrl={instanceUrl}
           apiVersion={apiVersion}
           getToken={getToken}

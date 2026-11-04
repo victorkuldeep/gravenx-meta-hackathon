@@ -617,7 +617,7 @@ export function ExplorerPanel({
           key={selName}
           apiName={selName}
           label={describe.label}
-          keyPrefix=""
+          entityId=""
           instanceUrl={instanceUrl}
           apiVersion={apiVersion}
           getToken={getToken}

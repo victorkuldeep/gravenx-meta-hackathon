@@ -31,7 +31,7 @@ export interface Footprint {
 }
 
 export interface FootprintRunner {
-  (soql: string): Promise<{ ok: boolean; records?: Record<string, unknown>[]; error?: string }>;
+  (soql: string, tooling?: boolean): Promise<{ ok: boolean; records?: Record<string, unknown>[]; error?: string }>;
 }
 
 interface SectionDef {
@@ -42,6 +42,8 @@ interface SectionDef {
   toRow: (r: Record<string, unknown>) => FootprintRow;
   /** Optional custom fetcher (multi-step) - used when no single SOQL can filter by object. */
   fetch?: (o: string, p: string, run: FootprintRunner) => Promise<FootprintRow[]>;
+  /** False = run variants through the standard REST API (e.g. QueueSobject, absent from Tooling). Default true. */
+  tooling?: boolean;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -127,6 +129,9 @@ const SECTIONS: SectionDef[] = [
   {
     key: "queues",
     label: "Queues",
+    // QueueSobject is not exposed by this org's Tooling API (INVALID_TYPE),
+    // so this section runs against the standard REST query endpoint instead.
+    tooling: false,
     queries: (o) => [
       `SELECT QueueId, Queue.Name, Queue.DeveloperName FROM QueueSobject WHERE SobjectType = '${o}' ORDER BY Queue.Name`,
       `SELECT QueueId FROM QueueSobject WHERE SobjectType = '${o}'`,
@@ -139,7 +144,7 @@ const SECTIONS: SectionDef[] = [
     queries: (o, p) => [
       `SELECT Id, ValidationName, Active, ErrorMessage FROM ValidationRule WHERE EntityDefinitionId = '${p}' ORDER BY ValidationName`,
       `SELECT Id, ValidationName, Active FROM ValidationRule WHERE EntityDefinitionId = '${p}' ORDER BY ValidationName`,
-      // Key prefix unknown (no describe) - fall back to relationship filter.
+      // Entity id unknown (no describe) - fall back to relationship filter.
       `SELECT Id, ValidationName, Active FROM ValidationRule WHERE EntityDefinition.QualifiedApiName = '${o}' ORDER BY ValidationName`,
     ],
     toRow: (r) => ({ id: str(r["Id"]), name: pickName(r), detail: str(r["ErrorMessage"]), active: pickActive(r) }),
@@ -175,11 +180,11 @@ const SECTIONS: SectionDef[] = [
   },
 ];
 
-/** Key prefix (001, a00, …) for EntityDefinitionId filters - "" when unresolvable. */
-export async function fetchKeyPrefix(apiName: string, run: FootprintRunner): Promise<string> {
+/** Entity DurableId (01I…) for EntityDefinitionId filters - "" when unresolvable. */
+export async function fetchEntityId(apiName: string, run: FootprintRunner): Promise<string> {
   try {
-    const res = await run(`SELECT KeyPrefix FROM EntityDefinition WHERE QualifiedApiName = '${apiName.trim()}' LIMIT 1`);
-    if (res.ok && res.records && res.records.length > 0) return str(res.records[0]["KeyPrefix"]);
+    const res = await run(`SELECT DurableId FROM EntityDefinition WHERE QualifiedApiName = '${apiName.trim()}' LIMIT 1`);
+    if (res.ok && res.records && res.records.length > 0) return str(res.records[0]["DurableId"]);
   } catch {
     /* fall through to relationship-filter variant */
   }
@@ -222,17 +227,43 @@ export interface FieldUsage {
 
 /** "Where is this field used?" via the platform dependency index. */
 export async function fetchFieldUsage(apiName: string, fieldName: string, run: FootprintRunner): Promise<FieldUsage> {
+  // The dependency index keys field references by the field's own metadata
+  // id (00N…), NOT the compound DurableId - verified live: DurableId returns
+  // zero rows while the 00N id returns Setup-identical references.
+  const keyOf = (r: Record<string, unknown>): string[] => {
+    const keys: string[] = [];
+    const id = str(r["Id"]);
+    const durable = str(r["DurableId"]);
+    if (id) keys.push(id);
+    if (durable && durable !== id) keys.push(durable);
+    return keys;
+  };
+  const depsByName = new Map<string, { name: string; type: string }>();
   try {
     const f = await run(
-      `SELECT DurableId FROM FieldDefinition WHERE EntityDefinition.QualifiedApiName = '${apiName.trim()}' AND QualifiedApiName = '${fieldName.trim()}' LIMIT 1`
+      `SELECT Id, DurableId FROM FieldDefinition WHERE EntityDefinition.QualifiedApiName = '${apiName.trim()}' AND QualifiedApiName = '${fieldName.trim()}' LIMIT 1`
     );
-    const id = f.ok && f.records && f.records.length > 0 ? str(f.records[0]["DurableId"]) : "";
-    if (!id) return { status: "unavailable", deps: [], note: "Field not found in this org." };
-    const d = await run(
-      `SELECT MetadataComponentName, MetadataComponentType FROM MetadataComponentDependency WHERE RefMetadataComponentId = '${id}'`
-    );
-    if (!d.ok) return { status: "unavailable", deps: [], note: d.error || "Dependency index unavailable." };
-    const deps = (d.records ?? []).map((r) => ({ name: str(r["MetadataComponentName"]) || "(unnamed)", type: str(r["MetadataComponentType"]) || "component" }));
+    const keys = f.ok && f.records && f.records.length > 0 ? keyOf(f.records[0] as Record<string, unknown>) : [];
+    if (keys.length === 0) return { status: "unavailable", deps: [], note: "Field not found in this org." };
+    let indexReached = false;
+    let lastError = "";
+    for (const key of keys) {
+      const d = await run(
+        `SELECT MetadataComponentName, MetadataComponentType FROM MetadataComponentDependency WHERE RefMetadataComponentId = '${key.replace(/'/g, "''")}'`
+      );
+      if (!d.ok) {
+        lastError = d.error || "Dependency index unavailable.";
+        continue;
+      }
+      indexReached = true;
+      for (const r of d.records ?? []) {
+        const name = str(r["MetadataComponentName"]) || "(unnamed)";
+        const type = str(r["MetadataComponentType"]) || "component";
+        depsByName.set(`${type}::${name}`, { name, type });
+      }
+    }
+    if (!indexReached) return { status: "unavailable", deps: [], note: lastError };
+    const deps = [...depsByName.values()];
     deps.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
     return { status: "ok", deps };
   } catch (e) {
@@ -263,7 +294,7 @@ export function footprintSectionKeys(): string[] {
   return SECTIONS.map((s) => s.key);
 }
 
-export async function fetchFootprint(apiName: string, keyPrefix: string, run: FootprintRunner): Promise<Footprint> {
+export async function fetchFootprint(apiName: string, entityId: string, run: FootprintRunner): Promise<Footprint> {
   const o = apiName.trim();
   const sections: FootprintSection[] = [];
   for (const def of SECTIONS) {
@@ -271,14 +302,14 @@ export async function fetchFootprint(apiName: string, keyPrefix: string, run: Fo
     let lastError = "";
     if (def.fetch) {
       try {
-        rows = await def.fetch(o, keyPrefix.trim(), run);
+        rows = await def.fetch(o, entityId.trim(), run);
       } catch (e) {
         lastError = e instanceof Error ? e.message : "query failed";
       }
     }
-    for (const q of rows ? [] : def.queries(o, keyPrefix.trim())) {
+    for (const q of rows ? [] : def.queries(o, entityId.trim())) {
       try {
-        const res = await run(q);
+        const res = await run(q, def.tooling !== false);
         if (res.ok) {
           rows = (res.records ?? []).map(def.toRow);
           break;
@@ -295,4 +326,36 @@ export async function fetchFootprint(apiName: string, keyPrefix: string, run: Fo
     );
   }
   return { apiName: o, sections, total: sections.reduce((n, s) => n + s.rows.length, 0) };
+}
+
+/** In-memory footprint cache: one entry per object, holds until refreshed. */
+export interface CachedFootprint {
+  fp: Footprint;
+  at: number;
+}
+
+const footprintCache = new Map<string, CachedFootprint>();
+
+/** Cached read - first open hits the org, re-opens reuse until cleared/forced. */
+export async function fetchFootprintCached(
+  apiName: string,
+  entityId: string,
+  run: FootprintRunner,
+  opts?: { force?: boolean }
+): Promise<CachedFootprint> {
+  const key = apiName.trim();
+  if (!opts?.force) {
+    const hit = footprintCache.get(key);
+    if (hit) return hit;
+  }
+  const fp = await fetchFootprint(key, entityId, run);
+  const entry = { fp, at: Date.now() };
+  footprintCache.set(key, entry);
+  return entry;
+}
+
+/** Drop one object's entry, or the whole cache (canvas-level Refresh all). */
+export function clearFootprintCache(apiName?: string): void {
+  if (apiName) footprintCache.delete(apiName.trim());
+  else footprintCache.clear();
 }

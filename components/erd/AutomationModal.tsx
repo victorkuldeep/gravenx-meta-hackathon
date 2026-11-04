@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import {
   EXECUTION_TIMELINE,
+  fetchEntityId,
   fetchFieldUsage,
-  fetchFootprint,
-  fetchKeyPrefix,
+  fetchFootprintCached,
   flowLane,
   footprintMarkdown,
   type FieldUsage,
@@ -16,7 +16,7 @@ import {
 export interface AutomationModalProps {
   apiName: string;
   label: string;
-  keyPrefix: string;
+  entityId: string;
   instanceUrl: string;
   apiVersion: string;
   getToken: () => string;
@@ -39,8 +39,10 @@ function ActiveDot({ active }: { active: boolean | null }) {
   );
 }
 
-export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVersion, getToken, fields, onClose, onLoaded }: AutomationModalProps) {
+export function AutomationModal({ apiName, label, entityId: entityIdProp, instanceUrl, apiVersion, getToken, fields, onClose, onLoaded }: AutomationModalProps) {
   const [footprint, setFootprint] = useState<Footprint | null>(null);
+  const [cachedAt, setCachedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<string>("order");
   const [copied, setCopied] = useState<string | null>(null);
@@ -49,9 +51,9 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
   const [usageBusy, setUsageBusy] = useState(false);
 
   const runTooling = useCallback(
-    async (soql: string) => {
+    async (soql: string, useTooling = true) => {
       const token = getToken();
-      const res = await apiFetch("/api/salesforce/soql", { instanceUrl, token, apiVersion, soql, tooling: true }, 60000);
+      const res = await apiFetch("/api/salesforce/soql", { instanceUrl, token, apiVersion, soql, tooling: useTooling }, 60000);
       let body: { error?: unknown; records?: unknown[] };
       try {
         body = (await res.json()) as typeof body;
@@ -68,29 +70,33 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
     [instanceUrl, apiVersion, getToken]
   );
 
+  const load = useCallback(
+    async (force: boolean) => {
+      setRefreshing(true);
+      setError(null);
+      try {
+        const entityId = entityIdProp || (await fetchEntityId(apiName, runTooling));
+        const entry = await fetchFootprintCached(apiName, entityId, runTooling, { force });
+        setFootprint(entry.fp);
+        setCachedAt(entry.at);
+        onLoaded?.(apiName, entry.fp.total);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not load automation.");
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [apiName, entityIdProp, runTooling, onLoaded]
+  );
+
   useEffect(() => {
-    let cancelled = false;
     setFootprint(null);
-    setError(null);
+    setCachedAt(null);
     setTab("order");
     setUsage(null);
     setField("");
-    void (async () => {
-      try {
-        const prefix = keyPrefix || (await fetchKeyPrefix(apiName, runTooling));
-        const fp = await fetchFootprint(apiName, prefix, runTooling);
-        if (!cancelled) {
-          setFootprint(fp);
-          onLoaded?.(apiName, fp.total);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load automation.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiName, keyPrefix, runTooling, onLoaded]);
+    void load(false);
+  }, [apiName, load]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -128,6 +134,35 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
               {total}
             </span>
           )}
+          {cachedAt !== null && (
+            <span
+              className="hidden shrink-0 text-[11px] text-ivory-500 sm:inline"
+              title={`Loaded ${new Date(cachedAt).toLocaleTimeString()} - hit refresh to pull the latest from your org`}
+            >
+              {refreshing ? "Refreshing…" : `Updated ${new Date(cachedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+            </span>
+          )}
+          <button
+            type="button"
+            disabled={!footprint || refreshing}
+            onClick={() => void load(true)}
+            title="Pull the latest automation from your org"
+            aria-label="Refresh automation from Salesforce"
+            className="shrink-0 cursor-pointer rounded border border-[var(--color-line)] p-1 text-ivory-950 hover:bg-ivory-100 disabled:opacity-50"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              aria-hidden="true"
+              className={refreshing ? "animate-spin" : undefined}
+            >
+              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <button
             type="button"
             disabled={!footprint}
@@ -342,7 +377,7 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
         </div>
         <div className="border-t border-[var(--color-line)] px-4 py-2">
           <p className="text-[11px] text-ivory-500">
-            Live Tooling API read - counts reflect this org right now. Triggers match the object directly; flows match each definition&apos;s latest version start node (one row per definition, drafts included). A 0 with an amber note means the section could not be read, not that it is empty.
+            Live Tooling API read. First open pulls from your org and holds it - refresh above or canvas Refresh all for the latest. A 0 with an amber note means the section could not be read, not that it is empty.
           </p>
         </div>
       </div>
