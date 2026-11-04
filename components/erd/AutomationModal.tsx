@@ -177,8 +177,8 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
             >
               {s.label}
               {s.key !== "order" && s.key !== "fields" && (
-                <span className="ml-1 rounded-full bg-ivory-200 px-1.5 py-px text-[10px] font-bold text-ivory-700">
-                  {s.status === "ok" ? s.rows.length : "n/a"}
+                <span className="ml-1 rounded-full bg-ivory-200 px-1.5 py-px text-[10px] font-bold text-ivory-700" title={s.status === "ok" ? `${s.rows.length} found` : "Could not be read in this org - open the tab for details"}>
+                  {s.rows.length}
                 </span>
               )}
             </button>
@@ -204,7 +204,7 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
                     {st.sections.map((key) => {
                       const sec = footprint.sections.find((s) => s.key === key);
                       if (!sec) return null;
-                      const count = sec.status === "ok" ? sec.rows.length : null;
+                      const count = sec.rows.length;
                       return (
                         <button
                           key={key}
@@ -213,7 +213,7 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
                           title={`Open ${sec.label}`}
                           className="cursor-pointer rounded-full border border-[var(--color-line)] bg-[var(--color-surface-soft)] px-2 py-0.5 text-[11px] font-bold text-ivory-950 hover:border-bronze-600"
                         >
-                          {sec.label} · {count === null ? "n/a" : count}
+                          {sec.label} · {count}
                         </button>
                       );
                     })}
@@ -342,7 +342,7 @@ export function AutomationModal({ apiName, label, keyPrefix, instanceUrl, apiVer
         </div>
         <div className="border-t border-[var(--color-line)] px-4 py-2">
           <p className="text-[11px] text-ivory-500">
-            Live Tooling API read - counts reflect this org right now. Flows match the trigger object; each saved version lists separately.
+            Live Tooling API read - counts reflect this org right now. Triggers match the object directly; flows match each definition&apos;s latest version start node (one row per definition, drafts included). A 0 with an amber note means the section could not be read, not that it is empty.
           </p>
         </div>
       </div>

@@ -40,6 +40,8 @@ interface SectionDef {
   /** Variants tried in order. {O} = object api name, {P} = key prefix. */
   queries: (o: string, p: string) => string[];
   toRow: (r: Record<string, unknown>) => FootprintRow;
+  /** Optional custom fetcher (multi-step) - used when no single SOQL can filter by object. */
+  fetch?: (o: string, p: string, run: FootprintRunner) => Promise<FootprintRow[]>;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -68,23 +70,59 @@ const SECTIONS: SectionDef[] = [
   {
     key: "triggers",
     label: "Triggers",
-    queries: (o) => [`SELECT Id, Name, Status FROM ApexTrigger WHERE SobjectType = '${o}' ORDER BY Name`],
+    queries: (o) => [
+      `SELECT Id, Name, Status, TableEnumOrId FROM ApexTrigger WHERE TableEnumOrId = '${o}' ORDER BY Name`,
+      `SELECT Id FROM ApexTrigger WHERE TableEnumOrId = '${o}'`,
+    ],
     toRow: (r) => ({ id: str(r["Id"]), name: pickName(r), detail: str(r["Status"]), active: pickActive(r) }),
   },
   {
     key: "flows",
     label: "Flows",
-    queries: (o) => [
-      `SELECT Id, MasterLabel, Status, ProcessType, TriggerType FROM Flow WHERE TriggerObjectOrEvent = '${o}' ORDER BY MasterLabel`,
-      `SELECT Id, Label, Status, TriggerType FROM Flow WHERE TriggerObjectOrEvent = '${o}' ORDER BY Label`,
-      `SELECT Id FROM Flow WHERE TriggerObjectOrEvent = '${o}'`,
-    ],
-    toRow: (r) => ({
-      id: str(r["Id"]),
-      name: pickName(r),
-      detail: [str(r["TriggerType"]), str(r["ProcessType"])].filter(Boolean).join(" · "),
-      active: pickActive(r),
-    }),
+    // No Tooling field links a flow to its trigger object, so resolve via the
+    // platform dependency index: EntityDefinition DurableId -> components of
+    // type Flow, then active state from FlowDefinition. Deduped by definition
+    // (version suffix stripped) - each definition lists once.
+    queries: () => [],
+    toRow: (r) => ({ id: str(r["Id"]), name: pickName(r), detail: "", active: pickActive(r) }),
+    fetch: async (o, _p, run) => {
+      // No Tooling field links a flow to its trigger object, and the
+      // dependency index misses flows (verified live against Case), so list
+      // every definition and read each latest version's start node. Tooling
+      // allows Metadata only on single-row queries, hence one fetch per
+      // definition - fetched in parallel, failures skipped, not fatal.
+      const defs = await run(`SELECT Id, DeveloperName, MasterLabel, LatestVersionId FROM FlowDefinition`);
+      if (!defs.ok) throw new Error(defs.error || "Flow definitions unreadable.");
+      const all = ((defs.records ?? []) as Record<string, unknown>[])
+        .map((r) => ({ id: str(r["Id"]), name: str(r["MasterLabel"]) || str(r["DeveloperName"]) || "(unnamed)", latest: str(r["LatestVersionId"]) }))
+        .filter((d) => d.id && d.latest);
+      if (all.length === 0) return [];
+      const settled = await Promise.all(
+        all.map(async (d): Promise<FootprintRow | null> => {
+          try {
+            const ver = await run(`SELECT Id, Status, Metadata FROM Flow WHERE Id = '${d.latest.replace(/'/g, "''")}'`);
+            if (!ver.ok || !ver.records || ver.records.length === 0) return null;
+            const v = ver.records[0] as Record<string, unknown>;
+            const md = v["Metadata"];
+            const start = md && typeof md === "object" ? (md as Record<string, unknown>)["start"] : null;
+            const obj = start && typeof start === "object" ? str((start as Record<string, unknown>)["object"]) : "";
+            if (obj !== o) return null;
+            const detail =
+              start && typeof start === "object"
+                ? [str((start as Record<string, unknown>)["triggerType"]), str((start as Record<string, unknown>)["recordTriggerType"])]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "";
+            return { id: str(v["Id"]) || d.latest, name: d.name, detail, active: str(v["Status"]).toLowerCase() === "active" };
+          } catch {
+            return null;
+          }
+        })
+      );
+      const rows = settled.filter((r): r is FootprintRow => r !== null);
+      rows.sort((a, b) => a.name.localeCompare(b.name));
+      return rows;
+    },
   },
   {
     key: "queues",
@@ -231,7 +269,14 @@ export async function fetchFootprint(apiName: string, keyPrefix: string, run: Fo
   for (const def of SECTIONS) {
     let rows: FootprintRow[] | null = null;
     let lastError = "";
-    for (const q of def.queries(o, keyPrefix.trim())) {
+    if (def.fetch) {
+      try {
+        rows = await def.fetch(o, keyPrefix.trim(), run);
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : "query failed";
+      }
+    }
+    for (const q of rows ? [] : def.queries(o, keyPrefix.trim())) {
       try {
         const res = await run(q);
         if (res.ok) {

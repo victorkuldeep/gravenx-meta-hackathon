@@ -20,14 +20,23 @@ describe("automation footprint", () => {
     const seen: string[] = [];
     const fp = await fetchFootprint("Account", "001", async (soql) => {
       seen.push(soql);
+      if (soql.includes("FROM FlowDefinition")) {
+        return { ok: true, records: [{ Id: "d1", DeveloperName: "F", MasterLabel: "F", LatestVersionId: "v1" }] };
+      }
+      if (soql.includes("FROM Flow WHERE Id =")) {
+        return { ok: true, records: [{ Id: "v1", Status: "Active", Metadata: { start: { object: "Account", triggerType: "RecordBeforeSave" } } }] };
+      }
       return { ok: true, records: [] };
     });
     expect(footprintSectionKeys()).toEqual(["triggers", "flows", "queues", "validation", "approvals", "duplicates", "assignment"]);
     expect(fp.sections).toHaveLength(7);
     expect(fp.sections.every((s) => s.status === "ok")).toBe(true);
     expect(seen.some((q) => q.includes("SobjectType = 'Account'"))).toBe(true);
+    expect(seen.some((q) => q.includes("FROM ApexTrigger") && q.includes("TableEnumOrId = 'Account'"))).toBe(true);
+    expect(seen.some((q) => q.includes("FROM FlowDefinition"))).toBe(true);
+    expect(seen.some((q) => q.includes("FROM Flow WHERE Id ="))).toBe(true);
     expect(seen.some((q) => q.includes("EntityDefinitionId = '001'"))).toBe(true);
-    expect(fp.total).toBe(0);
+    expect(fp.total).toBe(1);
   });
 
   it("falls back to minimal selects and picks names across shapes", async () => {
@@ -38,7 +47,14 @@ describe("automation footprint", () => {
         "FROM ApexTrigger": [{ Id: "t1", Name: "InvoiceTrigger", Status: "Active" }],
         "!Queue.DeveloperName": [],
         "SELECT QueueId FROM": [{ QueueId: "q1", Queue: { Name: "Billing Queue" } }],
-        "FROM Flow": [{ Id: "f1", MasterLabel: "New Invoice Flow", Status: "Active", TriggerType: "RecordAfterSave" }],
+        "FROM FlowDefinition": [
+          { Id: "def1", DeveloperName: "New_Invoice_Flow", MasterLabel: "New Invoice Flow", LatestVersionId: "301v2" },
+          { Id: "def2", DeveloperName: "Other_Flow", MasterLabel: "Other", LatestVersionId: "301v9" },
+        ],
+        "301v2": [
+          { Id: "301v2", Status: "Active", Metadata: { start: { object: "Invoice__c", triggerType: "RecordAfterSave", recordTriggerType: "Update" } } },
+        ],
+        "301v9": [{ Id: "301v9", Status: "Draft", Metadata: { start: { object: "Account" } } }],
         "FROM ValidationRule": [{ Id: "v1", ValidationName: "Amount_Positive", Active: true, ErrorMessage: "Must be positive" }],
         "FROM ProcessDefinition": [{ Id: "a1", Name: "Invoice Approval", Active: true }],
         "IsActive FROM": [{ Id: "d1", MasterLabel: "Invoice Match", IsActive: false }],
@@ -47,7 +63,8 @@ describe("automation footprint", () => {
     );
     const byKey = Object.fromEntries(fp.sections.map((s) => [s.key, s]));
     expect(byKey.triggers.rows[0]).toMatchObject({ name: "InvoiceTrigger", active: true });
-    expect(byKey.flows.rows[0]).toMatchObject({ name: "New Invoice Flow", detail: "RecordAfterSave" });
+    expect(byKey.flows.rows).toHaveLength(1);
+    expect(byKey.flows.rows[0]).toMatchObject({ name: "New Invoice Flow", detail: "RecordAfterSave · Update", active: true });
     expect(byKey.queues.rows[0]).toMatchObject({ name: "Billing Queue" });
     expect(byKey.validation.rows[0].name).toBe("Amount_Positive");
     expect(byKey.duplicates.rows[0]).toMatchObject({ active: false });
