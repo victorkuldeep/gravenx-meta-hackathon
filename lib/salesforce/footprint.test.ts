@@ -102,7 +102,8 @@ describe("automation footprint", () => {
     const seen: string[] = [];
     const usage = await fetchFieldUsage("Account", "Industry", async (soql) => {
       seen.push(soql);
-      if (soql.includes("FROM FieldDefinition")) return { ok: true, records: [{ Id: "00Nxx", DurableId: "01Ixx.00Nxx" }] };
+      // Tooling zeroes FieldDefinition.Id - the usable key is the DurableId suffix.
+      if (soql.includes("FROM FieldDefinition")) return { ok: true, records: [{ Id: "000000000000000AAA", DurableId: "01Ixx.00Nxx" }] };
       if (soql.includes("FROM MetadataComponentDependency")) {
         if (soql.includes("00Nxx") && !soql.includes("01Ixx")) {
           return { ok: true, records: [{ MetadataComponentName: "Acct Flow", MetadataComponentType: "Flow" }] };

@@ -227,15 +227,18 @@ export interface FieldUsage {
 
 /** "Where is this field used?" via the platform dependency index. */
 export async function fetchFieldUsage(apiName: string, fieldName: string, run: FootprintRunner): Promise<FieldUsage> {
-  // The dependency index keys field references by the field's own metadata
-  // id (00N…), NOT the compound DurableId - verified live: DurableId returns
-  // zero rows while the 00N id returns Setup-identical references.
+  // The dependency index keys field references by the field's bare metadata
+  // id (00N…) - NOT FieldDefinition.Id (Tooling returns it zeroed) and NOT
+  // the compound DurableId. Verified live: both return zero rows, while the
+  // DurableId suffix returns Setup-identical references.
   const keyOf = (r: Record<string, unknown>): string[] => {
     const keys: string[] = [];
-    const id = str(r["Id"]);
     const durable = str(r["DurableId"]);
-    if (id) keys.push(id);
-    if (durable && durable !== id) keys.push(durable);
+    const suffix = durable.includes(".") ? (durable.split(".").pop() as string) : durable;
+    if (suffix) keys.push(suffix);
+    if (durable && durable !== suffix) keys.push(durable);
+    const id = str(r["Id"]);
+    if (id && id !== suffix && id !== durable) keys.push(id);
     return keys;
   };
   const depsByName = new Map<string, { name: string; type: string }>();
