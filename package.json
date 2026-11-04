@@ -1,7 +1,6 @@
 {
   "name": "gravenx",
   "version": "0.1.0",
-  "private": true,
   "scripts": {
     "copy:excalidraw-assets": "node scripts/copy-excalidraw-assets.mjs",
     "predev": "npm run copy:excalidraw-assets",
